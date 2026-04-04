@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>VoiceCapture — Realtime Subtitles</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07071a;
+      --surface: rgba(255, 255, 255, .04);
+      --border: rgba(255, 255, 255, .08);
+      --primary: #818cf8;
+      --grad: linear-gradient(135deg, #818cf8, #38bdf8);
+      --success: #34d399;
+      --warning: #f59e0b;
+      --danger: #f87171;
+      --text: #e2e8f0;
+      --muted: #475569;
+      --radius: 14px
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(129, 140, 248, .07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0
+    }
+
+    /* HEADER */
+    header {
+      position: relative;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 7, 26, .96);
+      backdrop-filter: blur(20px);
+      gap: 10px
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      flex-shrink: 0
+    }
+
+    .logo svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(129, 140, 248, .3);
+      background: rgba(129, 140, 248, .08);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: .06em;
+      text-transform: uppercase
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+      animation: blink 1.4s ease infinite
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap
+    }
+
+    .btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: rgba(129, 140, 248, .1)
+    }
+
+    .btn.danger:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: rgba(248, 113, 113, .1)
+    }
+
+    .btn.dim {
+      opacity: 0.6;
+      background: rgba(255, 255, 255, .01);
+    }
+
+    /* waveform */
+    .waveform {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 18px
+    }
+
+    .bar {
+      width: 2px;
+      border-radius: 1px;
+      background: var(--primary);
+      animation: idle 2s ease-in-out infinite
+    }
+
+    .bar:nth-child(1) {
+      animation-delay: 0s
+    }
+
+    .bar:nth-child(2) {
+      animation-delay: .1s
+    }
+
+    .bar:nth-child(3) {
+      animation-delay: .15s
+    }
+
+    .bar:nth-child(4) {
+      animation-delay: .2s
+    }
+
+    .bar:nth-child(5) {
+      animation-delay: .3s
+    }
+
+    .bar:nth-child(6) {
+      animation-delay: .2s
+    }
+
+    @keyframes idle {
+
+      0%,
+      100% {
+        height: 3px;
+        opacity: .3
+      }
+
+      50% {
+        height: 8px;
+        opacity: .5
+      }
+    }
+
+    @keyframes active {
+
+      0%,
+      100% {
+        height: 4px
+      }
+
+      50% {
+        height: 16px
+      }
+    }
+
+    .waveform.speaking .bar {
+      animation: active .3s ease-in-out infinite;
+      opacity: 1
+    }
+
+    /* State pill */
+    #state-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      transition: all .3s
+    }
+
+    #state-pill.listening {
+      background: rgba(52, 211, 153, .1);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, .3)
+    }
+
+    #state-pill.speaking {
+      background: rgba(129, 140, 248, .15);
+      color: var(--primary);
+      border: 1px solid rgba(129, 140, 248, .4)
+    }
+
+    #state-pill.processing {
+      background: rgba(245, 158, 11, .1);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, .3)
+    }
+
+    #state-pill.connecting {
+      background: rgba(248, 113, 113, .1);
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, .3)
+    }
+
+    .pill-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor
+    }
+
+    .pill-dot.spin {
+      width: 7px;
+      height: 7px;
+      border: 1.5px solid currentColor;
+      border-top-color: transparent;
+      animation: spin .6s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* LANG ROW */
+    .lang-row {
+      position: relative;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 7, 26, .92)
+    }
+
+    .lang-group {
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .lang-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+      cursor: help
+    }
+
+    .lang-label.src {
+      color: var(--primary)
+    }
+
+    .lang-label.tgt {
+      color: var(--success)
+    }
+
+    .dd {
+      position: relative
+    }
+
+    .dd-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      -webkit-user-select: none;
+      user-select: none
+    }
+
+    .dd-btn:hover {
+      border-color: var(--primary);
+      background: rgba(129, 140, 248, .08)
+    }
+
+    .dd-btn svg {
+      transition: transform .15s
+    }
+
+    .dd.open .dd-btn svg {
+      transform: rotate(180deg)
+    }
+
+    .dd-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      min-width: 170px;
+      background: #0e0e28;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+      z-index: 200
+    }
+
+    .dd.open .dd-menu {
+      display: block;
+      animation: ddIn .12s ease
+    }
+
+    @keyframes ddIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .dd-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background .12s
+    }
+
+    .dd-item:hover {
+      background: rgba(129, 140, 248, .1)
+    }
+
+    .dd-item.active {
+      color: var(--primary);
+      font-weight: 600
+    }
+
+    .lang-arrow {
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    .info-chip {
+      margin-left: auto;
+      font-size: 9px;
+      color: var(--muted)
+    }
+
+    /* MAIN */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      padding: 10px 18px;
+      gap: 10px
+    }
+
+    /* Log panel */
+    .log-panel {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0
+    }
+
+    .log-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em
+    }
+
+    .log-stats {
+      display: flex;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--muted)
+    }
+
+    .log-stats span {
+      color: var(--text);
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      scroll-behavior: smooth;
+      min-height: 0
+    }
+
+    #log::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #log::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px
+    }
+
+    .log-line {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .025);
+      animation: pop .2s ease
+    }
+
+    @keyframes pop {
+      from {
+        opacity: 0;
+        transform: translateY(6px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .log-ts {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      padding-top: 2px;
+      white-space: nowrap;
+      flex-shrink: 0
+    }
+
+    .log-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .log-text {
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text)
+    }
+
+    .log-translated {
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--success);
+      font-style: italic;
+      opacity: .85
+    }
+
+    .empty-hint {
+      margin: auto;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .empty-hint .ico {
+      font-size: 32px;
+      opacity: .35;
+      margin-bottom: 6px
+    }
+
+    /* ═══ SUBTITLE — sạch, dễ đọc ═══ */
+    .subtitle-panel {
+      flex-shrink: 0;
+      background: rgba(0, 0, 0, .7);
+      border: 1px solid rgba(255, 255, 255, .06);
+      border-radius: var(--radius);
+      backdrop-filter: blur(24px);
+      padding: 14px 24px;
+      min-height: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+    }
+
+    .sub-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: nowrap
+    }
+
+    .sub-row .sub-dot,
+    .sub-row .sub-tag {
+      margin-top: 6px
+    }
+
+    .sub-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      opacity: 0;
+      transition: opacity .3s;
+      flex-shrink: 0;
+    }
+
+    .sub-dot.on {
+      opacity: 1;
+      box-shadow: 0 0 12px var(--primary)
+    }
+
+    .sub-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .sub-tag.src {
+      color: var(--primary);
+      background: rgba(129, 140, 248, .1);
+      border: 1px solid rgba(129, 140, 248, .2)
+    }
+
+    .sub-tag.tgt {
+      color: var(--success);
+      background: rgba(52, 211, 153, .1);
+      border: 1px solid rgba(52, 211, 153, .2)
+    }
+
+    /* Confirmed vs Pending text */
+    #sub-original {
+      flex: 1;
+      font-size: 18px;
+      font-weight: 500;
+      line-height: 1.5;
+      color: #fff;
+      min-height: 1.5em;
+      max-height: 4.5em;
+      /* 3 lines */
+      overflow-y: auto;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    #sub-original::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #sub-original::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .2);
+      border-radius: 2px
+    }
+
+    #sub-original.idle {
+      opacity: .3;
+      font-weight: 400;
+      font-size: 15px;
+      color: var(--muted)
+    }
+
+    #sub-original .confirmed {
+      color: #fff;
+      opacity: 1
+    }
+
+    #sub-original .pending {
+      color: rgba(165, 180, 252, .8);
+      opacity: .85
+    }
+
+    #sub-translated {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--success);
+      font-style: italic;
+      min-height: 0;
+      max-height: 4.2em;
+      /* 3 lines */
+      overflow-y: auto;
+      opacity: .9;
+    }
+
+    #sub-translated::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #sub-translated::-webkit-scrollbar-thumb {
+      background: rgba(52, 211, 153, .2);
+      border-radius: 2px
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 7px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(7, 7, 26, .96);
+      backdrop-filter: blur(20px);
+      z-index: 10;
+      flex-shrink: 0
+    }
+
+    .footer-info {
+      font-size: 9px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    #session-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+      font-size: 9px
+    }
+
+    /* ═══ METRICS BAR ═══ */
+    .metrics-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 6px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 7, 26, .92);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 5;
+    }
+
+    .metric {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--muted)
+    }
+
+    .metric-label {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-size: 8px;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 10px;
+      min-width: 40px
+    }
+
+    /* CUSTOM TOOLTIP for metrics */
+    [data-i18n-title] {
+      position: relative;
+    }
+
+    [data-i18n-title]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      opacity: 0;
+      visibility: hidden;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 500;
+      white-space: normal;
+      width: max-content;
+      max-width: 220px;
+      text-align: center;
+      text-transform: none;
+      letter-spacing: normal;
+      z-index: 999;
+      pointer-events: none;
+      transition: all 0.2s ease;
+      line-height: 1.4;
+    }
+
+    [data-i18n-title]:hover::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Audio level meter */
+    .level-meter {
+      display: flex;
+      align-items: flex-end;
+      gap: 1px;
+      height: 16px;
+      width: 60px
+    }
+
+    .level-bar {
+      width: 3px;
+      border-radius: 1px;
+      background: var(--primary);
+      transition: height 60ms linear;
+      min-height: 1px
+    }
+
+    /* VAD probability bar */
+    .vad-meter {
+      position: relative;
+      width: 60px;
+      height: 6px;
+      background: rgba(255, 255, 255, .06);
+      border-radius: 3px;
+      overflow: hidden
+    }
+
+    .vad-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 80ms linear, background 200ms;
+      width: 0%
+    }
+
+    /* Latency chip */
+    .latency-chip {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all .3s;
+    }
+
+    .latency-chip.fast {
+      background: rgba(52, 211, 153, .15);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, .2)
+    }
+
+    .latency-chip.medium {
+      background: rgba(245, 158, 11, .15);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, .2)
+    }
+
+    .latency-chip.slow {
+      background: rgba(248, 113, 113, .15);
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, .2)
+    }
+
+    /* Device chip */
+    .device-chip {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .device-chip.gpu {
+      background: rgba(52, 211, 153, .12);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, .2)
+    }
+
+    .device-chip.cpu {
+      background: rgba(245, 158, 11, .12);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, .2)
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#818cf8" />
+            <stop offset="100%" stop-color="#38bdf8" />
+          </linearGradient>
+        </defs>
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
+      </svg>
+      VoiceCapture
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div><span data-i18n="live">LIVE</span>
+    </div>
+    <div class="waveform" id="waveform">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+
+    <div class="header-right">
+      <!-- UI Lang Selection -->
+      <div class="dd" id="dd-ui">
+        <div class="dd-btn" onclick="toggleDD('dd-ui')" data-i18n-title="tooltip_ui">
+          <span id="ui-flag">🇻🇳</span><span id="ui-label">VI</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="dd-menu">
+          <div class="dd-item active" onclick="setUI('vi', '🇻🇳', 'VI')">🇻🇳 Tiếng Việt</div>
+          <div class="dd-item" onclick="setUI('en', '🇺🇸', 'EN')">🇺🇸 English</div>
+          <div class="dd-item" onclick="setUI('zh', '🇨🇳', 'ZH')">🇨🇳 中文</div>
+        </div>
+      </div>
+
+      <div id="state-pill" class="connecting">
+        <div class="pill-dot"></div><span id="state-text" data-i18n="state_conn">Connecting</span>
+      </div>
+
+      <button class="btn" id="btn-log-toggle" onclick="toggleLogTerminal()">📺 <span data-i18n="btn_log_on">Terminal: BẬT</span></button>
+      <button class="btn" id="btn-save-toggle" onclick="toggleSaveFile()">💾 <span data-i18n="btn_save_on">Lưu File:
+          BẬT</span></button>
+      <button class="btn" onclick="copyAll()">📋 <span data-i18n="btn_copy">Copy</span></button>
+      <button class="btn danger" onclick="clearAll()">🗑 <span data-i18n="btn_clear">Xoá</span></button>
+    </div>
+  </header>
+
+  <!-- LANG ROW -->
+  <div class="lang-row">
+    <div class="lang-group">
+      <span class="lang-label src" data-i18n="src_label" data-i18n-title="tooltip_src">🎙️ Transcript</span>
+      <div class="dd" id="dd-src">
+        <div class="dd-btn" onclick="toggleDD('dd-src')">
+          <span id="src-flag">🇻🇳</span><span id="src-label">Tiếng Việt</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="dd-menu">
+          <div class="dd-item" data-lang="auto" data-flag="🤖" data-name="Tự động" data-name-mode="auto"
+            onclick="setSrc(this)">🤖 Tự động</div>
+          <div class="dd-item" data-lang="vi" data-flag="🇻🇳" data-name="Tiếng Việt" onclick="setSrc(this)">🇻🇳 Tiếng
+            Việt</div>
+          <div class="dd-item" data-lang="en" data-flag="🇺🇸" data-name="English" onclick="setSrc(this)">🇺🇸 English
+          </div>
+          <div class="dd-item" data-lang="zh" data-flag="🇨🇳" data-name="中文" onclick="setSrc(this)">🇨🇳 中文</div>
+          <div class="dd-item" data-lang="ja" data-flag="🇯🇵" data-name="日本語" onclick="setSrc(this)">🇯🇵 日本語</div>
+          <div class="dd-item" data-lang="ko" data-flag="🇰🇷" data-name="한국어" onclick="setSrc(this)">🇰🇷 한국어</div>
+          <div class="dd-item" data-lang="fr" data-flag="🇫🇷" data-name="Français" onclick="setSrc(this)">🇫🇷 Français
+          </div>
+          <div class="dd-item" data-lang="de" data-flag="🇩🇪" data-name="Deutsch" onclick="setSrc(this)">🇩🇪 Deutsch
+          </div>
+          <div class="dd-item" data-lang="es" data-flag="🇪🇸" data-name="Español" onclick="setSrc(this)">🇪🇸 Español
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="lang-arrow">→</span>
+    <div class="lang-group">
+      <span class="lang-label tgt" data-i18n="tgt_label" data-i18n-title="tooltip_tgt">🌐 Dịch sang</span>
+      <div class="dd" id="dd-tgt">
+        <div class="dd-btn" onclick="toggleDD('dd-tgt')">
+          <span id="tgt-flag">🚫</span><span id="tgt-label">Không dịch</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="dd-menu">
+          <div class="dd-item" data-lang="none" data-flag="🚫" data-name="Không dịch" data-name-mode="none"
+            onclick="setTgt(this)">🚫 <span data-i18n="none_tgt">Không dịch</span></div>
+          <div class="dd-item" data-lang="vi" data-flag="🇻🇳" data-name="Tiếng Việt" onclick="setTgt(this)">🇻🇳 Tiếng
+            Việt</div>
+          <div class="dd-item" data-lang="en" data-flag="🇺🇸" data-name="English" onclick="setTgt(this)">🇺🇸 English
+          </div>
+          <div class="dd-item" data-lang="zh" data-flag="🇨🇳" data-name="中文" onclick="setTgt(this)">🇨🇳 中文</div>
+          <div class="dd-item" data-lang="ja" data-flag="🇯🇵" data-name="日本語" onclick="setTgt(this)">🇯🇵 日本語</div>
+          <div class="dd-item" data-lang="ko" data-flag="🇰🇷" data-name="한국어" onclick="setTgt(this)">🇰🇷 한국어</div>
+          <div class="dd-item" data-lang="fr" data-flag="🇫🇷" data-name="Français" onclick="setTgt(this)">🇫🇷 Français
+          </div>
+          <div class="dd-item" data-lang="de" data-flag="🇩🇪" data-name="Deutsch" onclick="setTgt(this)">🇩🇪 Deutsch
+          </div>
+          <div class="dd-item" data-lang="es" data-flag="🇪🇸" data-name="Español" onclick="setTgt(this)">🇪🇸 Español
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="width:10px"></div>
+    <div class="lang-group">
+      <span class="lang-label" data-i18n="model_label" data-i18n-title="tooltip_model" style="color:var(--warning)">🧠 Model</span>
+      <div class="dd" id="dd-model">
+        <div class="dd-btn" onclick="toggleDD('dd-model')">
+          <span id="model-label">base</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="dd-menu">
+          <div class="dd-item" data-model="tiny" onclick="setModel(this)">tiny (Fastest)</div>
+          <div class="dd-item active" data-model="base" onclick="setModel(this)">base (Balanced)</div>
+          <div class="dd-item" data-model="small" onclick="setModel(this)">small (Accurate)</div>
+          <div class="dd-item" data-model="medium" onclick="setModel(this)">medium (Slow)</div>
+          <div class="dd-item" data-model="large-v3" onclick="setModel(this)">large-v3 (Heavy)</div>
+        </div>
+      </div>
+    </div>
+    <span class="info-chip" id="info-device">-</span>
+  </div>
+
+  <!-- METRICS BAR -->
+  <div class="metrics-bar">
+    <div class="metric">
+      <span class="metric-label" data-i18n="metric_level" data-i18n-title="level_desc">🔊 Level</span>
+      <div class="level-meter" id="level-meter"></div>
+    </div>
+    <div class="metric">
+      <span class="metric-label" data-i18n="metric_vad" data-i18n-title="vad_desc">🎯 VAD</span>
+      <div class="vad-meter">
+        <div class="vad-fill" id="vad-fill"></div>
+      </div>
+      <span class="metric-value" id="vad-value">0%</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label" data-i18n="metric_stt" data-i18n-title="stt_desc">⚡ STT</span>
+      <span class="latency-chip fast" id="stt-latency">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label" data-i18n="metric_device" data-i18n-title="device_desc">🖥️ Device</span>
+      <span class="device-chip cpu" id="device-chip">CPU</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+    <div class="log-panel">
+      <div class="log-header">
+        <div class="log-title" data-i18n="log_title">📝 Transcript</div>
+        <div class="log-stats"><span data-i18n="stats_lines" style="color:var(--muted); font-weight:normal;">Câu:</span>
+          <span id="stat-lines">0</span> &nbsp; <span data-i18n="stats_words"
+            style="color:var(--muted); font-weight:normal;">Từ:</span> <span id="stat-words">0</span>
+        </div>
+      </div>
+      <div id="log">
+        <div class="empty-hint" id="empty-state">
+          <div class="ico">🎧</div>
+          <p data-i18n="empty_main">Đang chờ âm thanh hệ thống...</p>
+          <p data-i18n="empty_sub" style="font-size:10px;opacity:.5;margin-top:3px">Phát video / nhạc / meeting</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBTITLE — clean, readable -->
+    <div class="subtitle-panel">
+      <div class="sub-row">
+        <div class="sub-dot" id="sub-dot"></div>
+        <span class="sub-tag src" id="src-tag">VI</span>
+        <div id="sub-original" class="idle" data-i18n="idle_sub">Đang lắng nghe...</div>
+      </div>
+      <div class="sub-row" id="translate-row" style="display:none">
+        <div style="width:8px;flex-shrink:0"></div>
+        <span class="sub-tag tgt" id="tgt-tag">—</span>
+        <div id="sub-translated"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-info" id="footer-status" data-i18n="footer_conn">⚡ Đang kết nối...</div>
+    <div id="session-time">00:00</div>
+  </footer>
+
+  <script>
+    // ═══ Global States ═══
+    let uiLang = localStorage.getItem('voice_ui_lang') || 'vi';
+    let saveFileEnabled = localStorage.getItem('voice_save_file') !== 'false';
+    let logTerminalEnabled = localStorage.getItem('voice_log_terminal') !== 'false';
+    let savedSrcLang = localStorage.getItem('voice_src_lang') || 'en';
+    let savedTgtLang = localStorage.getItem('voice_tgt_lang') || 'none';
+    let savedModel = localStorage.getItem('voice_model') || 'base';
+
+    // ═══ i18n Data ═══
+    const tData = {
+      vi: {
+        live: "LIVE", btn_copy: "Copy", btn_clear: "Xoá", btn_save_on: "Lưu File: BẬT", btn_save_off: "Lưu File: TẮT", btn_log_on: "Terminal: BẬT", btn_log_off: "Terminal: TẮT",
+        src_label: "🎙️ TRANSCRIPT", tgt_label: "🌐 DỊCH SANG", model_label: "🧠 MODEL",
+        metric_level: "🔊 LEVEL", metric_vad: "🎯 VAD", metric_stt: "⚡ STT", metric_device: "🖥️ DEVICE",
+        level_desc: "Biên độ âm thanh hệ thống (RMS). Cột lên càng cao nghĩa là âm thanh truyền vào mic/loopback càng lớn.",
+        vad_desc: "Voice Activity Detection: Xác suất đang có tiếng người thực sự trong luồng âm thanh. Nếu mốc này vượt ngưỡng, STT mới kích hoạt mượt mà.",
+        stt_desc: "Độ trễ khi dịch và nhận diện (Latency - ms). Nhỏ hơn 500ms là tốc độ realtime mượt mà cực tốt.",
+        device_desc: "Chip trí tuệ nhân tạo đang đảm nhiệm gánh vác mô hình xử lý. Có thẻ GPU tức cấu hình siêu khoẻ.",
+        tooltip_ui: "Ngôn ngữ giao diện",
+        tooltip_src: "Ngôn ngữ gốc của Video/Meeting",
+        tooltip_tgt: "Đích dịch thuật để ghi Subtitle phụ",
+        tooltip_model: "Chuyển đổi AI Model (nhẹ = tốc độ phản hồi cực nhanh, nặng = độ chính xác từ vựng cao)",
+        log_title: "📝 TRANSCRIPT", stats_lines: "Câu: ", stats_words: "Từ: ",
+        empty_main: "Đang chờ âm thanh hệ thống...", empty_sub: "Phát video / nhạc / meeting",
+        footer_conn: "⚡ Đang kết nối...", footer_connected: "✅ Kết nối OK", footer_disconn: "🔴 Mất kết nối...",
+        state_conn: "○ Đang kết nối", state_listen: "● Lắng nghe", state_speak: "◉ Đang phát biểu", state_proc: "↻ Đang dịch",
+        alert_copy: "✅ Đã copy vào Clipboard!", none_tgt: "🚫 Không dịch", auto_src: "🤖 Tự động", idle_sub: "Đang lắng nghe..."
+      },
+      en: {
+        live: "LIVE", btn_copy: "Copy", btn_clear: "Clear", btn_save_on: "Save File: ON", btn_save_off: "Save File: OFF", btn_log_on: "Terminal: ON", btn_log_off: "Terminal: OFF",
+        src_label: "🎙️ SOURCE", tgt_label: "🌐 TARGET", model_label: "🧠 MODEL",
+        metric_level: "🔊 LEVEL", metric_vad: "🎯 VAD", metric_stt: "⚡ STT", metric_device: "🖥️ DEVICE",
+        level_desc: "System audio amplitude (RMS). Higher bars mean louder sound captured by the loopback interface.",
+        vad_desc: "Voice Activity Detection probability. It only activates the AI transcriber when actual human voice is detected, saving compute power.",
+        stt_desc: "Inference latency (ms). Sub-500ms is perfectly realtime.",
+        device_desc: "The hardware running the AI inference. GPU is much better and faster than CPU.",
+        tooltip_ui: "UI Language",
+        tooltip_src: "Original language of the audio source",
+        tooltip_tgt: "Language to translate subtitles into",
+        tooltip_model: "AI Inference Model (smaller = realtime speed, larger = accurate vocabulary)",
+        log_title: "📝 TRANSCRIPT", stats_lines: "Lines: ", stats_words: "Words: ",
+        empty_main: "Waiting for system audio...", empty_sub: "Play a video/music or join a meeting",
+        footer_conn: "⚡ Connecting...", footer_connected: "✅ Connected", footer_disconn: "🔴 Disconnected...",
+        state_conn: "○ Connecting", state_listen: "● Listening", state_speak: "◉ Speaking", state_proc: "↻ Transcribing",
+        alert_copy: "✅ Copied to clipboard!", none_tgt: "🚫 Do not translate", auto_src: "🤖 Auto detect", idle_sub: "Listening..."
+      },
+      zh: {
+        live: "直播", btn_copy: "复制", btn_clear: "清除", btn_save_on: "保存文件: 开", btn_save_off: "保存文件: 关", btn_log_on: "终端日志: 开", btn_log_off: "终端日志:关",
+        src_label: "🎙️ 语音语言", tgt_label: "🌐 翻译语言", model_label: "🧠 模型",
+        metric_level: "🔊 音量", metric_vad: "🎯 语音", metric_stt: "⚡ 延迟", metric_device: "🖥️ 设备",
+        level_desc: "系统音频振幅 (RMS)。较高的条代表系统发出的声音更大。",
+        vad_desc: "语音活动检测概率。只有在实际检测到人类语音时才触发后端进行转录，以节省性能。",
+        stt_desc: "推理延迟（毫秒）。低于500毫秒则即为完美的实时转换效果。",
+        device_desc: "系统用于执行AI模型的芯片类型（GPU性能远大于CPU）。",
+        tooltip_ui: "界面显示语言",
+        tooltip_src: "视频或会议的人声发源语言",
+        tooltip_tgt: "用于辅助显示的翻译目标语言",
+        tooltip_model: "人工智能识别模型（小 = 速度快， 大 = 精确度高）",
+        log_title: "📝 逐字稿", stats_lines: "句数: ", stats_words: "字数: ",
+        empty_main: "正在等待系统音频...", empty_sub: "请播放视频 / 音乐 / 会议",
+        footer_conn: "⚡ 连接中...", footer_connected: "✅ 连接成功", footer_disconn: "🔴 连接断开...",
+        state_conn: "○ 连接中", state_listen: "● 聆听中", state_speak: "◉ 说话中", state_proc: "↻ 识别中",
+        alert_copy: "✅ 已复制到剪贴板！", none_tgt: "🚫 不翻译", auto_src: "🤖 自动检测", idle_sub: "正在聆听..."
+      }
+    };
+
+    function t(key) { return tData[uiLang][key] || tData['en'][key] || key; }
+
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.setAttribute('data-tooltip', t(el.getAttribute('data-i18n-title')));
+      });
+
+      document.querySelectorAll('[data-name-mode]').forEach(el => {
+        if (el.dataset.nameMode === 'none') {
+          el.innerHTML = `🚫 <span data-i18n="none_tgt">${t('none_tgt')}</span>`;
+        } else if (el.dataset.nameMode === 'auto') {
+          el.textContent = `🤖 ${t('auto_src')}`;
+        }
+      });
+
+      // Save toggle update
+      const btnSaveToggle = document.getElementById('btn-save-toggle');
+      const spanSaveToggle = btnSaveToggle.querySelector('span');
+      if (saveFileEnabled) {
+        btnSaveToggle.classList.remove('dim');
+        spanSaveToggle.setAttribute('data-i18n', 'btn_save_on');
+        spanSaveToggle.textContent = t('btn_save_on');
+      } else {
+        btnSaveToggle.classList.add('dim');
+        spanSaveToggle.setAttribute('data-i18n', 'btn_save_off');
+        spanSaveToggle.textContent = t('btn_save_off');
+      }
+
+      // Log toggle update
+      const btnLogToggle = document.getElementById('btn-log-toggle');
+      const spanLogToggle = btnLogToggle.querySelector('span');
+      if (logTerminalEnabled) {
+        btnLogToggle.classList.remove('dim');
+        spanLogToggle.setAttribute('data-i18n', 'btn_log_on');
+        spanLogToggle.textContent = t('btn_log_on');
+      } else {
+        btnLogToggle.classList.add('dim');
+        spanLogToggle.setAttribute('data-i18n', 'btn_log_off');
+        spanLogToggle.textContent = t('btn_log_off');
+      }
+
+      // Dropdowns update
+      if (currentTarget === 'none') document.getElementById('tgt-label').textContent = t('none_tgt');
+      if (savedSrcLang === 'auto') document.getElementById('src-label').textContent = t('auto_src');
+
+      // SubOrig
+      if (document.getElementById('sub-original').classList.contains('idle')) {
+        document.getElementById('sub-original').textContent = t('idle_sub');
+      }
+
+      // Current state pill
+      const sbv = statePill.className;
+      if (sbv === 'connecting') stateText.textContent = t('state_conn');
+      else if (sbv === 'listening') stateText.textContent = t('state_listen');
+      else if (sbv === 'speaking') stateText.textContent = t('state_speak');
+      else if (sbv === 'processing') stateText.textContent = t('state_proc');
+    }
+
+    function toggleSaveFile() {
+      saveFileEnabled = !saveFileEnabled;
+      localStorage.setItem('voice_save_file', saveFileEnabled);
+      applyI18n();
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'set_save_transcript', enabled: saveFileEnabled }));
+      }
+    }
+
+    function toggleLogTerminal() {
+      logTerminalEnabled = !logTerminalEnabled;
+      localStorage.setItem('voice_log_terminal', logTerminalEnabled);
+      applyI18n();
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'set_log_terminal', enabled: logTerminalEnabled }));
+      }
+    }
+
+    function setUI(lang, flag, label) {
+      uiLang = lang;
+      localStorage.setItem('voice_ui_lang', lang);
+      document.getElementById('ui-flag').textContent = flag;
+      document.getElementById('ui-label').textContent = label;
+      document.querySelectorAll('#dd-ui .dd-item').forEach(i => i.classList.remove('active'));
+      if (event) event.currentTarget.classList.add('active');
+      document.getElementById('dd-ui').classList.remove('open');
+      applyI18n();
+    }
+
+    // Restore preferred UI language on load
+    if (uiLang === 'en') {
+      document.getElementById('ui-flag').textContent = '🇺🇸';
+      document.getElementById('ui-label').textContent = 'EN';
+    } else if (uiLang === 'zh') {
+      document.getElementById('ui-flag').textContent = '🇨🇳';
+      document.getElementById('ui-label').textContent = 'ZH';
+    }
+
+    // ═══ Application Logic ═══
+    let lineCount = 0, wordCount = 0, ws = null, currentTarget = 'none';
+    const startTime = Date.now();
+    const logEl = document.getElementById('log');
+    const emptyState = document.getElementById('empty-state');
+    const waveform = document.getElementById('waveform');
+    const statePill = document.getElementById('state-pill');
+    const stateText = document.getElementById('state-text');
+    const subOrig = document.getElementById('sub-original');
+    const subTrans = document.getElementById('sub-translated');
+    const subDot = document.getElementById('sub-dot');
+    const transRow = document.getElementById('translate-row');
+
+    // Metrics elements
+    const levelMeter = document.getElementById('level-meter');
+    const vadFill = document.getElementById('vad-fill');
+    const vadValue = document.getElementById('vad-value');
+    const sttLatency = document.getElementById('stt-latency');
+    const deviceChip = document.getElementById('device-chip');
+
+    const NUM_BARS = 16;
+    const levelBars = [];
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'level-bar';
+      bar.style.height = '1px';
+      levelMeter.appendChild(bar);
+      levelBars.push(bar);
+    }
+    let smoothLevel = 0;
+
+    setInterval(() => {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('session-time').textContent =
+        `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    }, 1000);
+
+    function setState(s) {
+      statePill.className = s;
+      statePill.querySelector('.pill-dot').className = 'pill-dot' + (s === 'processing' ? ' spin' : '');
+      if (s === 'listening') stateText.textContent = t('state_listen');
+      else if (s === 'speaking') stateText.textContent = t('state_speak');
+      else if (s === 'processing') stateText.textContent = t('state_proc');
+      else if (s === 'connecting') stateText.textContent = t('state_conn');
+    }
+
+    function setSub(confirmed, pending, translated) {
+      if (!confirmed && !pending) {
+        subOrig.className = 'idle';
+        subOrig.textContent = t('idle_sub');
+        subDot.classList.remove('on');
+        transRow.style.display = 'none';
+        subTrans.textContent = '';
+        return;
+      }
+
+      subDot.classList.add('on');
+      subOrig.className = '';
+
+      let html = '';
+      if (confirmed) html += `<span class="confirmed">${esc(confirmed)}</span> `;
+      if (pending) html += `<span class="pending">${esc(pending)}</span>`;
+      subOrig.innerHTML = html.trim();
+      subOrig.scrollTop = subOrig.scrollHeight;
+
+      if (currentTarget !== 'none') {
+        if (translated) {
+          transRow.style.display = 'flex';
+          subTrans.textContent = translated;
+          subTrans.scrollTop = subTrans.scrollHeight;
+        } else {
+          transRow.style.display = 'none';
+          subTrans.textContent = '';
+        }
+      } else {
+        transRow.style.display = 'none';
+        subTrans.textContent = '';
+      }
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'info':
+          document.getElementById('info-device').textContent = `${msg.model} · ${msg.device}`;
+          _handleSetModelActiveDOM(msg.model);
+          let ds = `🔊 ${msg.device} · ${msg.sr}Hz`;
+          const ds_node = document.getElementById('footer-status');
+          if (ds_node.innerHTML.includes('Kết nối OK') || ds_node.innerHTML.includes('Connected') || ds_node.innerHTML.includes('成功')) {
+            ds_node.innerHTML = ds;
+          } else {
+            setTimeout(() => { ds_node.innerHTML = ds; }, 500);
+          }
+
+          if (msg.compute_device === 'cuda') {
+            deviceChip.textContent = 'GPU ' + (msg.compute_type || '');
+            deviceChip.className = 'device-chip gpu';
+          } else {
+            deviceChip.textContent = 'CPU ' + (msg.compute_type || '');
+            deviceChip.className = 'device-chip cpu';
+          }
+          break;
+        case 'vad':
+          waveform.classList.toggle('speaking', msg.active);
+          if (msg.active) setState('speaking');
+          else if (statePill.className === 'speaking') setState('listening');
+          break;
+        case 'audio_level':
+          updateAudioLevel(msg.rms, msg.vad_prob);
+          break;
+        case 'stt_latency':
+          updateLatency(msg.ms, msg.mode);
+          break;
+        case 'interim':
+          setSub(msg.confirmed || '', msg.pending || '', msg.translated || '');
+          if (msg.confirmed || msg.pending) logEl.scrollTop = logEl.scrollHeight;
+          break;
+        case 'transcript':
+          setSub('', '', '');
+          addLog(msg.text, msg.translated, msg.timestamp);
+          break;
+        case 'status':
+          setState(msg.state);
+          if (msg.state === 'listening') setSub('', '', '');
+          break;
+      }
+    }
+
+    function updateAudioLevel(rms, vadProb) {
+      const targetLevel = Math.min(Math.pow(rms * 10, 0.6), 1.0);
+      if (targetLevel > smoothLevel) smoothLevel = targetLevel;
+      else smoothLevel = smoothLevel * 0.85 + targetLevel * 0.15;
+      
+      for (let i = 0; i < NUM_BARS; i++) {
+        const threshold = (i + 1) / NUM_BARS;
+        const barH = 4 + (12 * (i / (NUM_BARS - 1))); // height increases from 4px to 16px
+        levelBars[i].style.height = barH + 'px';
+        
+        if (smoothLevel >= threshold) {
+          levelBars[i].style.opacity = '1';
+          if (i > 12) levelBars[i].style.background = 'var(--danger)';
+          else if (i > 8) levelBars[i].style.background = 'var(--warning)';
+          else levelBars[i].style.background = 'var(--success)';
+        } else {
+          levelBars[i].style.opacity = '0.2';
+          levelBars[i].style.background = 'var(--muted)';
+        }
+      }
+      
+      const vadPct = Math.round(vadProb * 100);
+      vadFill.style.width = vadPct + '%';
+      vadValue.textContent = vadPct + '%';
+      if (vadProb > 0.7) {
+        vadFill.style.background = 'var(--success)';
+      } else if (vadProb > 0.3) {
+        vadFill.style.background = 'var(--warning)';
+      } else {
+        vadFill.style.background = 'var(--muted)';
+      }
+    }
+
+    function updateLatency(ms, mode) {
+      sttLatency.textContent = Math.round(ms) + 'ms';
+      sttLatency.className = 'latency-chip';
+      if (ms < 200) sttLatency.classList.add('fast');
+      else if (ms < 800) sttLatency.classList.add('medium');
+      else sttLatency.classList.add('slow');
+    }
+
+    function addLog(text, translated, ts) {
+      if (emptyState) emptyState.style.display = 'none';
+      const el = document.createElement('div'); el.className = 'log-line';
+      let h = `<div class="log-ts">${ts}</div><div class="log-content"><div class="log-text">${esc(text)}</div>`;
+      if (translated) h += `<div class="log-translated">→ ${esc(translated)}</div>`;
+      h += '</div>'; el.innerHTML = h; logEl.appendChild(el);
+      lineCount++; wordCount += text.trim().split(/\s+/).length;
+      document.getElementById('stat-lines').textContent = lineCount;
+      document.getElementById('stat-words').textContent = wordCount;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function toggleDD(id) { const el = document.getElementById(id); document.querySelectorAll('.dd').forEach(d => { if (d.id !== id) d.classList.remove('open') }); el.classList.toggle('open') }
+    document.addEventListener('click', e => { if (!e.target.closest('.dd')) document.querySelectorAll('.dd').forEach(d => d.classList.remove('open')) });
+
+    function _handleSetSrcActiveDOM(lang) {
+      document.querySelectorAll('#dd-src .dd-item').forEach(i => {
+        if (i.dataset.lang === lang) {
+          i.classList.add('active');
+          document.getElementById('src-flag').textContent = i.dataset.flag;
+          if (i.dataset.nameMode === 'auto') {
+            document.getElementById('src-label').textContent = t('auto_src');
+          } else {
+            document.getElementById('src-label').textContent = i.dataset.name;
+          }
+          document.getElementById('src-tag').textContent = i.dataset.lang.toUpperCase();
+        } else {
+          i.classList.remove('active');
+        }
+      });
+    }
+
+    function _handleSetTgtActiveDOM(lang) {
+      currentTarget = lang;
+      document.querySelectorAll('#dd-tgt .dd-item').forEach(i => {
+        if (i.dataset.lang === lang) {
+          i.classList.add('active');
+          document.getElementById('tgt-flag').textContent = i.dataset.flag;
+          if (i.dataset.nameMode === 'none') {
+            document.getElementById('tgt-label').textContent = t('none_tgt');
+          } else {
+            document.getElementById('tgt-label').textContent = i.dataset.name;
+          }
+          document.getElementById('tgt-tag').textContent = i.dataset.lang === 'none' ? '—' : i.dataset.lang.toUpperCase();
+          transRow.style.display = i.dataset.lang === 'none' ? 'none' : 'flex';
+        } else {
+          i.classList.remove('active');
+        }
+      });
+    }
+
+    function _handleSetModelActiveDOM(modelSize) {
+      savedModel = modelSize;
+      localStorage.setItem('voice_model', savedModel);
+      document.querySelectorAll('#dd-model .dd-item').forEach(i => {
+        if (i.dataset.model === modelSize) {
+          i.classList.add('active');
+          document.getElementById('model-label').textContent = modelSize;
+        } else {
+          i.classList.remove('active');
+        }
+      });
+    }
+
+    function setSrc(el) {
+      savedSrcLang = el.dataset.lang;
+      localStorage.setItem('voice_src_lang', savedSrcLang);
+      _handleSetSrcActiveDOM(savedSrcLang);
+      el.closest('.dd').classList.remove('open');
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_source', language: savedSrcLang }));
+    }
+
+    function setTgt(el) {
+      savedTgtLang = el.dataset.lang;
+      localStorage.setItem('voice_tgt_lang', savedTgtLang);
+      _handleSetTgtActiveDOM(savedTgtLang);
+      el.closest('.dd').classList.remove('open');
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_target', language: savedTgtLang }));
+    }
+
+    function setModel(el) {
+      const model = el.dataset.model;
+      _handleSetModelActiveDOM(model);
+      el.closest('.dd').classList.remove('open');
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_model', model: model }));
+    }
+
+    function copyAll() {
+      const text = [...logEl.querySelectorAll('.log-line')].map(l => {
+        const ts = l.querySelector('.log-ts').textContent, txt = l.querySelector('.log-text').textContent, tr = l.querySelector('.log-translated');
+        return `[${ts}] ${txt}` + (tr ? `\n       → ${tr.textContent.replace('→ ', '')}` : '');
+      }).join('\n'); navigator.clipboard.writeText(text).then(() => alert(t('alert_copy')));
+    }
+    function clearAll() {
+      logEl.querySelectorAll('.log-line').forEach(l => l.remove());
+      lineCount = wordCount = 0;
+      document.getElementById('stat-lines').textContent = '0';
+      document.getElementById('stat-words').textContent = '0';
+      if (emptyState) emptyState.style.display = '';
+      setSub('', '', '');
+    }
+    function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+
+    function connect() {
+      ws = new WebSocket('ws://' + window.location.host + '/ws');
+      ws.onopen = () => {
+        setState('listening'); document.getElementById('footer-status').innerHTML = t('footer_connected');
+        // Restore state to backend
+        ws.send(JSON.stringify({ type: 'set_source', language: savedSrcLang }));
+        ws.send(JSON.stringify({ type: 'set_target', language: savedTgtLang }));
+        ws.send(JSON.stringify({ type: 'set_save_transcript', enabled: saveFileEnabled }));
+        ws.send(JSON.stringify({ type: 'set_log_terminal', enabled: logTerminalEnabled }));
+        ws.send(JSON.stringify({ type: 'set_model', model: savedModel }));
+      };
+      ws.onclose = () => { setState('connecting'); document.getElementById('footer-status').innerHTML = t('footer_disconn'); setTimeout(connect, 2000) };
+      ws.onmessage = e => handleMessage(JSON.parse(e.data));
+      setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'ping' })) }, 10000);
+    }
+
+    // Set initial DOM state before connect based on LocalStorage
+    _handleSetSrcActiveDOM(savedSrcLang);
+    _handleSetTgtActiveDOM(savedTgtLang);
+    _handleSetModelActiveDOM(savedModel);
+    applyI18n();
+
+    connect();
+  </script>
+</body>
+
+</html>

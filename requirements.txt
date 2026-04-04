@@ -1,0 +1,5 @@
+PyAudioWPatch
+faster-whisper
+silero-vad
+numpy
+torch
