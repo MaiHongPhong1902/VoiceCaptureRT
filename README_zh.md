@@ -45,21 +45,25 @@ Voice/
 
 1. **安装必要的 Python 库依赖:**
    在根目录打开终端运行：
+
    ```bash
    pip install -r requirements.txt
    ```
 
 2. **安装 PyTorch (如果您有显卡并打算用 GPU 加速则必须安装):**
    为了在 `faster-whisper` 和 `Silero VAD` 上实现极其流畅、低延迟的操作性能表现，你应当安装具有兼容 CUDA 特性的 PyTorch 版本 (例如：标准 `cu124`)。
+
    ```bash
    pip uninstall -y torch torchvision torchaudio
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
    ```
+
    *(如果你的电脑用着其他版本的 CUDA 计算架构，请务必将其指向相匹配的 index url).*
 
 ## 🚀 使用指南
 
 只需在根文件夹下运行以下命令：
+
 ```bash
 python main_ui.py
 ```
@@ -79,10 +83,3 @@ python main_ui.py
 | `VAD_THRESHOLD` | `0.3` | 对声音探测的敏感度。取值在 `0`->`1` 间, 越低代表即使有强烈的背景噪音也能捕获 |
 | `SILENCE_DURATION_S` | `0.8` | 当安静了一段多少秒数的空隙时让系统自行切断结算整装句子一回 (`final`) |
 | `INTERIM_INTERVAL_S` | `0.5` | 发送给后台用于进行推断文字并展现中间过程文字状态的音频流发送间隔周期时长，这会直接影响你查阅动态显示的帧率体验 |
-
-## 💡 故障排查 (Troubleshooting)
-
-* **由于终端提示 `[WARNING] Port 8765 is in use` 受到拦截导致报错罢工怎么办：**
-是因为上一次关掉的程序端口悬空还挂在后台。请放宽心，你不用着急马上关闭目前新开的程序。该脚本内部本身即蕴藏着非常智能的主动清杀功能。你只需要稍作等待约几秒时间它自己会自动把原系统强制踢走断链并立即恢复连接通畅。
-* **我明明插了最高配的 NVIDIA 显卡在板上，可为什么终端却偏偏反馈着 `[WARNING] No CUDA GPU — using CPU` 呢：**
-这是因为电脑自带的 PyTorch 或者底层依赖项安装时由于网络问题降级回退成简易 CPU 版本。 请跑一趟上面说的 PyTorch + 显卡加速 CUDA 安装指令跑一遍即可完美搞定。

@@ -45,21 +45,25 @@ Voice/
 
 1. **Cài đặt thư viện Python thiết yếu:**
    Mở terminal tại thư mục gốc và chạy:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 2. **Cài đặt PyTorch (Bắt buộc nếu muốn dùng GPU):**
    Để ứng dụng chạy siêu mượt với độ trễ thấp trên thư viện `faster-whisper` và `Silero VAD`, bạn nên cài bản PyTorch tương thích CUDA (Ví dụ: chuẩn `cu124`).
+
    ```bash
    pip uninstall -y torch torchvision torchaudio
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
    ```
+
    *(Trỏ index url khác tương ứng phiên bản CUDA máy tính bạn nếu dùng cấu trúc card khác).*
 
 ## 🚀 Hướng dẫn sử dụng
 
 Chỉ cần chạy lệnh sau tại thư mục gốc:
+
 ```bash
 python main_ui.py
 ```
@@ -79,10 +83,3 @@ Chỉ định linh hoạt mọi mặt của Backend theo nhu cầu:
 | `VAD_THRESHOLD` | `0.3` | Tỉ lệ nhạy giọng nói. Từ `0`->`1`, để càng thấp VAD sẽ càng bắt tiếng ồn mạnh |
 | `SILENCE_DURATION_S` | `0.8` | Khoảng im lặng (tính bằng giây) để hệ thống tự động ngắt chốt một câu nói (`final`) |
 | `INTERIM_INTERVAL_S` | `0.5` | Chu kỳ stream audio sang nhận diện ảnh hưởng fps hiển thị text dạng `pending` |
-
-## 💡 Troubleshooting (Gỡ rối)
-
-* **Terminal chặn lại ghi `⚠️ Port 8765 đang được sử dụng`:**
-Do lần chạy trước bạn tắt đột ngột khiến cổng mạng còn treo. Hãy khoan tắt đi, Script có tích hợp trí thông minh có tính năng auto-kill tiến trình cũ, vui lòng chờ khoảng vài giây port sẽ được nhả và mở lại lập tức.
-* **Terminal ghi `⚠️ No CUDA GPU — using CPU` mặc dù có cắm card màn hình NVIDIA:**
-Do bản PyTorch hoặc thư viện chạy code cài phiên bản fallback trơn cho máy trạm CPU. Hãy chạy lệnh cài đặt PyTorch cùng CUDA ở trên để fix vấn đề này.
