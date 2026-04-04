@@ -1,3 +1,5 @@
+[🇻🇳 Tiếng Việt](README.md) | [🇺🇸 English](README_en.md) | [🇨🇳 中文](README_zh.md)
+
 # 🎙️ VoiceCapture — Realtime Subtitles & Translation
 
 VoiceCapture là ứng dụng thu âm thanh hệ thống (thông qua WASAPI loopback trên Windows) và chuyển đổi giọng nói thành văn bản (Speech-to-Text) theo thời gian thực.
