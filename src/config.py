@@ -26,7 +26,7 @@ class Config:
 
     # ── VAD (Voice Activity Detection) ─────────────────
     VAD_THRESHOLD: float      = 0.15    # 0.0→1.0 | lower = more sensitive
-    SILENCE_DURATION_S: float = 0.8     # seconds of silence to cut off sentence
+    SILENCE_DURATION_S: float = 0.45    # seconds of silence to cut off sentence (faster cut = better multilingual separation)
 
     # ── Streaming / Interim ──────────────────────────
     INTERIM_INTERVAL_S: float = 0.5    # reduce from 0.6 → 0.5 for smoother realtime

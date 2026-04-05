@@ -97,9 +97,19 @@ async def websocket_endpoint(ws: WebSocket):
                 _transcriber.set_log_terminal(enabled)
                 await manager.broadcast({"type": "log_terminal_changed", "enabled": enabled})
 
+            elif msg_type == "set_diarization" and _transcriber:
+                enabled = data.get("enabled", False)
+                _transcriber.set_diarization(enabled)
+                await manager.broadcast({"type": "diarization_changed", "enabled": enabled})
+
             elif msg_type == "set_model" and _transcriber:
                 model = data.get("model", "base")
                 _transcriber.set_model(model)
+
+            elif msg_type == "set_model_config" and _transcriber:
+                compute = data.get("compute_type", "float16")
+                beam = data.get("beam_size", 1)
+                _transcriber.set_model_config(compute, beam)
 
     except WebSocketDisconnect:
         manager.disconnect(ws)

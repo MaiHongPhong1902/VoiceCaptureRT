@@ -161,6 +161,11 @@
       background: rgba(255, 255, 255, .01);
     }
 
+    .btn-icon {
+      padding: 5px;
+      margin-left: 2px;
+    }
+
     /* waveform */
     .waveform {
       display: flex;
@@ -277,11 +282,31 @@
     }
 
     .pill-dot.spin {
-      width: 7px;
-      height: 7px;
+      width: 10px;
+      height: 10px;
+      background: transparent;
       border: 1.5px solid currentColor;
       border-top-color: transparent;
-      animation: spin .6s linear infinite
+      animation: spin .6s linear infinite;
+    }
+
+    .pill-dot.pulse {
+      animation: pulse 1s infinite alternate;
+    }
+
+    .pill-dot.blink {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes pulse {
+      from { transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 0px currentColor; }
+      to { transform: scale(1.2); opacity: 1; box-shadow: 0 0 6px currentColor; }
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
     }
 
     @keyframes spin {
@@ -875,6 +900,42 @@
       color: var(--warning);
       border: 1px solid rgba(245, 158, 11, .2)
     }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, .7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s;
+    }
+    .modal-overlay.show {
+      display: flex; opacity: 1;
+    }
+    .modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      width: 320px;
+      box-shadow: 0 20px 40px rgba(0,0,0,.5);
+      transform: translateY(10px);
+      transition: transform .2s;
+    }
+    .modal-overlay.show .modal { transform: translateY(0); }
+    .modal-title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;}
+    .modal-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modal-label { font-size: 11px; color: var(--muted); font-weight: 500;}
+    .modal-select, .modal-input {
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-family: inherit; font-weight: 500;
+      outline: none;
+    }
+    .modal-select:focus, .modal-input:focus { border-color: var(--primary); }
+    .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+    .modal-footer .btn { padding: 6px 12px; }
   </style>
 </head>
 
@@ -930,7 +991,10 @@
         <div class="pill-dot"></div><span id="state-text" data-i18n="state_conn">Connecting</span>
       </div>
 
-      <button class="btn" id="btn-log-toggle" onclick="toggleLogTerminal()">📺 <span data-i18n="btn_log_on">Terminal: BẬT</span></button>
+      <button class="btn" id="btn-diarization-toggle" onclick="toggleDiarization()">👥 <span
+          data-i18n="btn_diarize_off">Phân người nói: TẮT</span></button>
+      <button class="btn" id="btn-log-toggle" onclick="toggleLogTerminal()">📺 <span data-i18n="btn_log_on">Terminal:
+          BẬT</span></button>
       <button class="btn" id="btn-save-toggle" onclick="toggleSaveFile()">💾 <span data-i18n="btn_save_on">Lưu File:
           BẬT</span></button>
       <button class="btn" onclick="copyAll()">📋 <span data-i18n="btn_copy">Copy</span></button>
@@ -967,6 +1031,28 @@
           </div>
         </div>
       </div>
+      
+      <!-- DYNAMIC AUTO RESTRICT PANEL -->
+      <div id="auto-restrict-panel" style="display: none; align-items: center; gap: 8px; margin-left: 10px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+        <span style="font-size: 10px; color: var(--muted); font-weight: 600;">FOCUS:</span>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="vi" checked class="auto-lang-cb" onchange="updateDynamicAuto()"> VI</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="en" checked class="auto-lang-cb" onchange="updateDynamicAuto()"> EN</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="zh" class="auto-lang-cb" onchange="updateDynamicAuto()"> ZH</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="ja" class="auto-lang-cb" onchange="updateDynamicAuto()"> JA</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="ko" class="auto-lang-cb" onchange="updateDynamicAuto()"> KO</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="fr" class="auto-lang-cb" onchange="updateDynamicAuto()"> FR</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="de" class="auto-lang-cb" onchange="updateDynamicAuto()"> DE</label>
+        <label style="font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" value="es" class="auto-lang-cb" onchange="updateDynamicAuto()"> ES</label>
+      </div>
+
     </div>
     <span class="lang-arrow">→</span>
     <div class="lang-group">
@@ -999,7 +1085,8 @@
     </div>
     <div style="width:10px"></div>
     <div class="lang-group">
-      <span class="lang-label" data-i18n="model_label" data-i18n-title="tooltip_model" style="color:var(--warning)">🧠 Model</span>
+      <span class="lang-label" data-i18n="model_label" data-i18n-title="tooltip_model" style="color:var(--warning)">🧠
+        Model</span>
       <div class="dd" id="dd-model">
         <div class="dd-btn" onclick="toggleDD('dd-model')">
           <span id="model-label">base</span>
@@ -1015,6 +1102,7 @@
           <div class="dd-item" data-model="large-v3" onclick="setModel(this)">large-v3 (Heavy)</div>
         </div>
       </div>
+      <button class="btn btn-icon" onclick="openModelSettings()" data-i18n-title="model_settings_title">⚙️</button>
     </div>
     <span class="info-chip" id="info-device">-</span>
   </div>
@@ -1081,19 +1169,49 @@
     <div id="session-time">00:00</div>
   </footer>
 
+  <!-- MODAL -->
+  <div class="modal-overlay" id="model-modal">
+    <div class="modal">
+      <div class="modal-title">⚙️ <span data-i18n="model_settings_title">Model Settings</span></div>
+      
+      <div class="modal-row">
+        <span class="modal-label" data-i18n="compute_type">Compute Type</span>
+        <select class="modal-select" id="cfg-compute">
+          <option value="float16">float16 (GPU default)</option>
+          <option value="int8_float16">int8_float16</option>
+          <option value="int8">int8 (CPU default)</option>
+          <option value="float32">float32</option>
+        </select>
+      </div>
+
+      <div class="modal-row">
+        <span class="modal-label" data-i18n="beam_size">Beam Size (1-5)</span>
+        <input type="number" class="modal-input" id="cfg-beam" min="1" max="5" value="1" style="width: 60px; text-align: center;">
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn dim" onclick="closeModelSettings()" data-i18n="btn_cancel">Cancel</button>
+        <button class="btn" style="background: rgba(129, 140, 248, 0.1); color: var(--primary); border-color: var(--primary);" onclick="saveModelSettings()" data-i18n="btn_save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ═══ Global States ═══
     let uiLang = localStorage.getItem('voice_ui_lang') || 'vi';
     let saveFileEnabled = localStorage.getItem('voice_save_file') !== 'false';
     let logTerminalEnabled = localStorage.getItem('voice_log_terminal') !== 'false';
+    let diarizeEnabled = localStorage.getItem('voice_diarize') === 'true';
     let savedSrcLang = localStorage.getItem('voice_src_lang') || 'en';
     let savedTgtLang = localStorage.getItem('voice_tgt_lang') || 'none';
     let savedModel = localStorage.getItem('voice_model') || 'base';
+    let savedCompute = localStorage.getItem('voice_compute') || ''; // empty means rely on server auto
+    let savedBeam = parseInt(localStorage.getItem('voice_beam') || '1', 10);
 
     // ═══ i18n Data ═══
     const tData = {
       vi: {
-        live: "LIVE", btn_copy: "Copy", btn_clear: "Xoá", btn_save_on: "Lưu File: BẬT", btn_save_off: "Lưu File: TẮT", btn_log_on: "Terminal: BẬT", btn_log_off: "Terminal: TẮT",
+        live: "LIVE", btn_copy: "Copy", btn_clear: "Xoá", btn_save_on: "Lưu File: BẬT", btn_save_off: "Lưu File: TẮT", btn_log_on: "Terminal: BẬT", btn_log_off: "Terminal: TẮT", btn_diarize_on: "Phân Người Nói: BẬT", btn_diarize_off: "Phân Người Nói: TẮT",
         src_label: "🎙️ TRANSCRIPT", tgt_label: "🌐 DỊCH SANG", model_label: "🧠 MODEL",
         metric_level: "🔊 LEVEL", metric_vad: "🎯 VAD", metric_stt: "⚡ STT", metric_device: "🖥️ DEVICE",
         level_desc: "Biên độ âm thanh hệ thống (RMS). Cột lên càng cao nghĩa là âm thanh truyền vào mic/loopback càng lớn.",
@@ -1107,11 +1225,12 @@
         log_title: "📝 TRANSCRIPT", stats_lines: "Câu: ", stats_words: "Từ: ",
         empty_main: "Đang chờ âm thanh hệ thống...", empty_sub: "Phát video / nhạc / meeting",
         footer_conn: "⚡ Đang kết nối...", footer_connected: "✅ Kết nối OK", footer_disconn: "🔴 Mất kết nối...",
-        state_conn: "○ Đang kết nối", state_listen: "● Lắng nghe", state_speak: "◉ Đang phát biểu", state_proc: "↻ Đang dịch",
-        alert_copy: "✅ Đã copy vào Clipboard!", none_tgt: "🚫 Không dịch", auto_src: "🤖 Tự động", idle_sub: "Đang lắng nghe..."
+        state_conn: "Đang kết nối", state_listen: "Lắng nghe", state_speak: "Đang phát biểu", state_proc: "Đang dịch",
+        alert_copy: "Đã copy vào Clipboard!", none_tgt: "Không dịch", auto_src: "Tự động", idle_sub: "Đang lắng nghe...",
+        model_settings_title: "Cài đặt Model AI", compute_type: "Loại tính toán (Compute)", beam_size: "Độ rộng tìm kiếm (Beam)", btn_cancel: "Hủy", btn_save: "Lưu"
       },
       en: {
-        live: "LIVE", btn_copy: "Copy", btn_clear: "Clear", btn_save_on: "Save File: ON", btn_save_off: "Save File: OFF", btn_log_on: "Terminal: ON", btn_log_off: "Terminal: OFF",
+        live: "LIVE", btn_copy: "Copy", btn_clear: "Clear", btn_save_on: "Save File: ON", btn_save_off: "Save File: OFF", btn_log_on: "Terminal: ON", btn_log_off: "Terminal: OFF", btn_diarize_on: "Diarization: ON", btn_diarize_off: "Diarization: OFF",
         src_label: "🎙️ SOURCE", tgt_label: "🌐 TARGET", model_label: "🧠 MODEL",
         metric_level: "🔊 LEVEL", metric_vad: "🎯 VAD", metric_stt: "⚡ STT", metric_device: "🖥️ DEVICE",
         level_desc: "System audio amplitude (RMS). Higher bars mean louder sound captured by the loopback interface.",
@@ -1125,8 +1244,9 @@
         log_title: "📝 TRANSCRIPT", stats_lines: "Lines: ", stats_words: "Words: ",
         empty_main: "Waiting for system audio...", empty_sub: "Play a video/music or join a meeting",
         footer_conn: "⚡ Connecting...", footer_connected: "✅ Connected", footer_disconn: "🔴 Disconnected...",
-        state_conn: "○ Connecting", state_listen: "● Listening", state_speak: "◉ Speaking", state_proc: "↻ Transcribing",
-        alert_copy: "✅ Copied to clipboard!", none_tgt: "🚫 Do not translate", auto_src: "🤖 Auto detect", idle_sub: "Listening..."
+        state_conn: "Connecting", state_listen: "Listening", state_speak: "Speaking", state_proc: "Transcribing",
+        alert_copy: "Copied to clipboard!", none_tgt: "Do not translate", auto_src: "Auto detect", idle_sub: "Listening...",
+        model_settings_title: "AI Model Settings", compute_type: "Compute Type", beam_size: "Beam Size (1-5)", btn_cancel: "Cancel", btn_save: "Save"
       },
       zh: {
         live: "直播", btn_copy: "复制", btn_clear: "清除", btn_save_on: "保存文件: 开", btn_save_off: "保存文件: 关", btn_log_on: "终端日志: 开", btn_log_off: "终端日志:关",
@@ -1143,8 +1263,9 @@
         log_title: "📝 逐字稿", stats_lines: "句数: ", stats_words: "字数: ",
         empty_main: "正在等待系统音频...", empty_sub: "请播放视频 / 音乐 / 会议",
         footer_conn: "⚡ 连接中...", footer_connected: "✅ 连接成功", footer_disconn: "🔴 连接断开...",
-        state_conn: "○ 连接中", state_listen: "● 聆听中", state_speak: "◉ 说话中", state_proc: "↻ 识别中",
-        alert_copy: "✅ 已复制到剪贴板！", none_tgt: "🚫 不翻译", auto_src: "🤖 自动检测", idle_sub: "正在聆听..."
+        state_conn: "连接中", state_listen: "聆听中", state_speak: "说话中", state_proc: "识别中",
+        alert_copy: "已复制到剪贴板！", none_tgt: "不翻译", auto_src: "自动检测", idle_sub: "正在聆听...",
+        model_settings_title: "AI 模型设置", compute_type: "计算类型 (Compute)", beam_size: "束搜索宽度 (Beam)", btn_cancel: "取消", btn_save: "保存"
       }
     };
 
@@ -1192,6 +1313,21 @@
         spanLogToggle.textContent = t('btn_log_off');
       }
 
+      // Diarization toggle update
+      const btnDiarizeToggle = document.getElementById('btn-diarization-toggle');
+      if (btnDiarizeToggle) {
+        const spanDiarizeToggle = btnDiarizeToggle.querySelector('span');
+        if (diarizeEnabled) {
+          btnDiarizeToggle.classList.remove('dim');
+          spanDiarizeToggle.setAttribute('data-i18n', 'btn_diarize_on');
+          spanDiarizeToggle.textContent = t('btn_diarize_on');
+        } else {
+          btnDiarizeToggle.classList.add('dim');
+          spanDiarizeToggle.setAttribute('data-i18n', 'btn_diarize_off');
+          spanDiarizeToggle.textContent = t('btn_diarize_off');
+        }
+      }
+
       // Dropdowns update
       if (currentTarget === 'none') document.getElementById('tgt-label').textContent = t('none_tgt');
       if (savedSrcLang === 'auto') document.getElementById('src-label').textContent = t('auto_src');
@@ -1224,6 +1360,15 @@
       applyI18n();
       if (ws?.readyState === 1) {
         ws.send(JSON.stringify({ type: 'set_log_terminal', enabled: logTerminalEnabled }));
+      }
+    }
+
+    function toggleDiarization() {
+      diarizeEnabled = !diarizeEnabled;
+      localStorage.setItem('voice_diarize', diarizeEnabled);
+      applyI18n();
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'set_diarization', enabled: diarizeEnabled }));
       }
     }
 
@@ -1285,15 +1430,24 @@
     }, 1000);
 
     function setState(s) {
+      if (s === 'processing' && subOrig.textContent === t('idle_sub')) {
+        return;
+      }
       statePill.className = s;
-      statePill.querySelector('.pill-dot').className = 'pill-dot' + (s === 'processing' ? ' spin' : '');
+      
+      let dotClass = 'pill-dot';
+      if (s === 'processing') dotClass += ' spin';
+      else if (s === 'speaking') dotClass += ' pulse';
+      else if (s === 'connecting') dotClass += ' blink';
+      statePill.querySelector('.pill-dot').className = dotClass;
+
       if (s === 'listening') stateText.textContent = t('state_listen');
       else if (s === 'speaking') stateText.textContent = t('state_speak');
       else if (s === 'processing') stateText.textContent = t('state_proc');
       else if (s === 'connecting') stateText.textContent = t('state_conn');
     }
 
-    function setSub(confirmed, pending, translated) {
+    function setSub(confirmed, pending, translated, speaker) {
       if (!confirmed && !pending) {
         subOrig.className = 'idle';
         subOrig.textContent = t('idle_sub');
@@ -1307,6 +1461,7 @@
       subOrig.className = '';
 
       let html = '';
+      if (speaker) html += `<span class="speaker-tag" style="background:#4A90E2;color:#fff;padding:2px 8px;border-radius:6px;font-size:0.85em;margin-right:8px;display:inline-block;box-shadow:inset 0 1px 2px rgba(255,255,255,0.1);font-weight:600">👤 ${esc(speaker)}</span> `;
       if (confirmed) html += `<span class="confirmed">${esc(confirmed)}</span> `;
       if (pending) html += `<span class="pending">${esc(pending)}</span>`;
       subOrig.innerHTML = html.trim();
@@ -1347,6 +1502,8 @@
             deviceChip.textContent = 'CPU ' + (msg.compute_type || '');
             deviceChip.className = 'device-chip cpu';
           }
+          
+          if (!savedCompute) { savedCompute = msg.compute_type || 'float16'; }
           break;
         case 'vad':
           waveform.classList.toggle('speaking', msg.active);
@@ -1360,16 +1517,16 @@
           updateLatency(msg.ms, msg.mode);
           break;
         case 'interim':
-          setSub(msg.confirmed || '', msg.pending || '', msg.translated || '');
+          setSub(msg.confirmed || '', msg.pending || '', msg.translated || '', msg.speaker || '');
           if (msg.confirmed || msg.pending) logEl.scrollTop = logEl.scrollHeight;
           break;
         case 'transcript':
-          setSub('', '', '');
-          addLog(msg.text, msg.translated, msg.timestamp);
+          setSub('', '', '', '');
+          addLog(msg.text, msg.translated, msg.timestamp, msg.speaker || '');
           break;
         case 'status':
           setState(msg.state);
-          if (msg.state === 'listening') setSub('', '', '');
+          if (msg.state === 'listening') setSub('', '', '', '');
           break;
       }
     }
@@ -1378,12 +1535,12 @@
       const targetLevel = Math.min(Math.pow(rms * 10, 0.6), 1.0);
       if (targetLevel > smoothLevel) smoothLevel = targetLevel;
       else smoothLevel = smoothLevel * 0.85 + targetLevel * 0.15;
-      
+
       for (let i = 0; i < NUM_BARS; i++) {
         const threshold = (i + 1) / NUM_BARS;
         const barH = 4 + (12 * (i / (NUM_BARS - 1))); // height increases from 4px to 16px
         levelBars[i].style.height = barH + 'px';
-        
+
         if (smoothLevel >= threshold) {
           levelBars[i].style.opacity = '1';
           if (i > 12) levelBars[i].style.background = 'var(--danger)';
@@ -1394,7 +1551,7 @@
           levelBars[i].style.background = 'var(--muted)';
         }
       }
-      
+
       const vadPct = Math.round(vadProb * 100);
       vadFill.style.width = vadPct + '%';
       vadValue.textContent = vadPct + '%';
@@ -1415,10 +1572,12 @@
       else sttLatency.classList.add('slow');
     }
 
-    function addLog(text, translated, ts) {
+    function addLog(text, translated, ts, speaker) {
       if (emptyState) emptyState.style.display = 'none';
       const el = document.createElement('div'); el.className = 'log-line';
-      let h = `<div class="log-ts">${ts}</div><div class="log-content"><div class="log-text">${esc(text)}</div>`;
+      let h = `<div class="log-ts">${ts}</div><div class="log-content"><div class="log-text">`;
+      if (speaker) h += `<b style="color:#4A90E2">[${esc(speaker)}]</b> `;
+      h += `${esc(text)}</div>`;
       if (translated) h += `<div class="log-translated">→ ${esc(translated)}</div>`;
       h += '</div>'; el.innerHTML = h; logEl.appendChild(el);
       lineCount++; wordCount += text.trim().split(/\s+/).length;
@@ -1431,8 +1590,10 @@
     document.addEventListener('click', e => { if (!e.target.closest('.dd')) document.querySelectorAll('.dd').forEach(d => d.classList.remove('open')) });
 
     function _handleSetSrcActiveDOM(lang) {
+      const baseLang = (lang === 'auto' || lang.startsWith('auto_')) ? 'auto' : lang;
+      
       document.querySelectorAll('#dd-src .dd-item').forEach(i => {
-        if (i.dataset.lang === lang) {
+        if (i.dataset.lang === baseLang) {
           i.classList.add('active');
           document.getElementById('src-flag').textContent = i.dataset.flag;
           if (i.dataset.nameMode === 'auto') {
@@ -1440,7 +1601,7 @@
           } else {
             document.getElementById('src-label').textContent = i.dataset.name;
           }
-          document.getElementById('src-tag').textContent = i.dataset.lang.toUpperCase();
+          document.getElementById('src-tag').textContent = baseLang.toUpperCase();
         } else {
           i.classList.remove('active');
         }
@@ -1484,7 +1645,22 @@
       localStorage.setItem('voice_src_lang', savedSrcLang);
       _handleSetSrcActiveDOM(savedSrcLang);
       el.closest('.dd').classList.remove('open');
-      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_source', language: savedSrcLang }));
+      
+      const pnl = document.getElementById('auto-restrict-panel');
+      if (savedSrcLang === 'auto' || savedSrcLang.startsWith('auto_')) {
+        pnl.style.display = 'flex';
+        updateDynamicAuto();
+      } else {
+        pnl.style.display = 'none';
+        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_source', language: savedSrcLang }));
+      }
+    }
+
+    function updateDynamicAuto() {
+      const cbs = document.querySelectorAll('.auto-lang-cb:checked');
+      let langs = Array.from(cbs).map(cb => cb.value);
+      let langParam = langs.length > 0 ? ('auto_' + langs.join('_')) : 'auto';
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_source', language: langParam }));
     }
 
     function setTgt(el) {
@@ -1502,6 +1678,27 @@
       if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'set_model', model: model }));
     }
 
+    function openModelSettings() {
+      document.getElementById('cfg-compute').value = savedCompute || 'float16';
+      document.getElementById('cfg-beam').value = savedBeam;
+      document.getElementById('model-modal').classList.add('show');
+    }
+
+    function closeModelSettings() {
+      document.getElementById('model-modal').classList.remove('show');
+    }
+
+    function saveModelSettings() {
+      savedCompute = document.getElementById('cfg-compute').value;
+      savedBeam = parseInt(document.getElementById('cfg-beam').value, 10);
+      localStorage.setItem('voice_compute', savedCompute);
+      localStorage.setItem('voice_beam', savedBeam);
+      closeModelSettings();
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'set_model_config', compute_type: savedCompute, beam_size: savedBeam }));
+      }
+    }
+
     function copyAll() {
       const text = [...logEl.querySelectorAll('.log-line')].map(l => {
         const ts = l.querySelector('.log-ts').textContent, txt = l.querySelector('.log-text').textContent, tr = l.querySelector('.log-translated');
@@ -1514,7 +1711,7 @@
       document.getElementById('stat-lines').textContent = '0';
       document.getElementById('stat-words').textContent = '0';
       if (emptyState) emptyState.style.display = '';
-      setSub('', '', '');
+      setSub('', '', '', '');
     }
     function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 
@@ -1527,7 +1724,11 @@
         ws.send(JSON.stringify({ type: 'set_target', language: savedTgtLang }));
         ws.send(JSON.stringify({ type: 'set_save_transcript', enabled: saveFileEnabled }));
         ws.send(JSON.stringify({ type: 'set_log_terminal', enabled: logTerminalEnabled }));
+        ws.send(JSON.stringify({ type: 'set_diarization', enabled: diarizeEnabled }));
         ws.send(JSON.stringify({ type: 'set_model', model: savedModel }));
+        if (savedCompute) {
+            ws.send(JSON.stringify({ type: 'set_model_config', compute_type: savedCompute, beam_size: savedBeam }));
+        }
       };
       ws.onclose = () => { setState('connecting'); document.getElementById('footer-status').innerHTML = t('footer_disconn'); setTimeout(connect, 2000) };
       ws.onmessage = e => handleMessage(JSON.parse(e.data));
@@ -1538,6 +1739,11 @@
     _handleSetSrcActiveDOM(savedSrcLang);
     _handleSetTgtActiveDOM(savedTgtLang);
     _handleSetModelActiveDOM(savedModel);
+    
+    if (savedSrcLang === 'auto' || savedSrcLang.startsWith('auto_')) {
+      document.getElementById('auto-restrict-panel').style.display = 'flex';
+    }
+    
     applyI18n();
 
     connect();

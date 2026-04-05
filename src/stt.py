@@ -22,11 +22,13 @@ class STTProcessor:
         self.load_model(model_size)
 
     def load_model(self, model_size: str):
-        if hasattr(self, 'model') and self.model_size == model_size:
+        if hasattr(self, 'model') and self.model_size == model_size and getattr(self, '_loaded_compute_type', None) == self.compute_type:
             return
+            
         print(f"\033[93m[INFO] Loading faster-whisper [{model_size}] on {self.device} ({self.compute_type})...\033[0m")
         self.model = WhisperModel(model_size, device=self.device, compute_type=self.compute_type)
         self.model_size = model_size
+        self._loaded_compute_type = self.compute_type
         print(f"\033[92m[SUCCESS] faster-whisper [{model_size}] ready ({self.device})\033[0m")
 
     @staticmethod
@@ -52,7 +54,7 @@ class STTProcessor:
         i = 0
         while i < len(sentences):
             s = sentences[i].strip()
-            # Gộp dấu câu nếu có
+            #   Merge punctuation if any
             punct = sentences[i+1] if i+1 < len(sentences) and re.match(r'^[.!?。]$', sentences[i+1]) else ''
             if punct:
                 i += 2
@@ -71,6 +73,26 @@ class STTProcessor:
 
     def transcribe(self, audio: np.ndarray) -> str:
         lang = None if self.language in ("auto", "", None) else self.language
+        
+        # If auto-detect and restrict_langs is provided, manually find best matching language
+        restrict = getattr(self, 'restrict_langs', [])
+        if lang is None and len(restrict) > 0:
+            try:
+                detect_info = self.model.detect_language(audio.astype(np.float32))
+                # detect_info is a tuple: (language, top_prob, all_probs_list)
+                if len(detect_info) >= 3:
+                    probs_dict = dict(detect_info[2])
+                    best_lang = None
+                    best_prob = -1
+                    for r_lang in restrict:
+                        p = probs_dict.get(r_lang, 0)
+                        if p > best_prob:
+                            best_prob = p
+                            best_lang = r_lang
+                    if best_lang:
+                        lang = best_lang
+            except Exception as e:
+                pass # Fallback to standard auto-detect
 
         t0 = time.perf_counter()
         segments, info = self.model.transcribe(

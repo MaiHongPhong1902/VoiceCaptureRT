@@ -40,3 +40,7 @@ transcript.txt
 
 # Mac
 .DS_Store
+
+# Logs and temp files
+*.log
+tmp_ecapa/

@@ -9,6 +9,8 @@ import time
 import difflib
 from datetime import datetime
 from pathlib import Path
+import gc
+import torch
 
 import numpy as np
 import pyaudiowpatch as pyaudio
@@ -19,6 +21,7 @@ from src.audio_utils import process_raw_bytes, compute_rms
 from src.vad import VADProcessor
 from src.stt import STTProcessor
 from src.translator import Translator
+from src.diarizer import SpeakerDiarizer
 
 
 class TranscriberWS:
@@ -39,6 +42,7 @@ class TranscriberWS:
             config.WHISPER_COMPUTE, config.LANGUAGE, config.BEAM_SIZE,
         )
         self.translator = Translator()
+        self.diarizer = SpeakerDiarizer()
 
         # Language
         self.source_lang = config.LANGUAGE or "vi"
@@ -81,27 +85,35 @@ class TranscriberWS:
         print(f"\033[96m[INFO] Transcript -> {self.transcript_path}\033[0m")
 
     def set_save_transcript(self, enabled: bool):
-        if enabled and not self.save_transcript_enabled:
-            self._init_transcript_file()
+        if getattr(self, 'save_transcript_enabled', None) == enabled: return
         self.save_transcript_enabled = enabled
         status = 'ON' if enabled else 'OFF'
         if self.log_terminal_enabled:
             print(f"\033[93m[INFO] Save Transcript -> {status}\033[0m")
 
     def set_log_terminal(self, enabled: bool):
+        if getattr(self, 'log_terminal_enabled', None) == enabled: return
         self.log_terminal_enabled = enabled
         status = 'ON' if enabled else 'OFF'
         if self.log_terminal_enabled:
             print(f"\033[96m[INFO] Terminal Logs -> {status}\033[0m")
 
-    def _save_line(self, ts, text, translated=""):
+    def set_diarization(self, enabled: bool):
+        if getattr(self.diarizer, 'enabled', None) == enabled: return
+        self.diarizer.set_enabled(enabled)
+        status = 'ON' if enabled else 'OFF'
+        if self.log_terminal_enabled:
+            print(f"\033[93m[INFO] Diarization -> {status}\033[0m")
+
+    def _save_line(self, ts, text, translated="", speaker=""):
         if not self.save_transcript_enabled:
             return
         try:
             with open(self.transcript_path, "a", encoding="utf-8") as f:
-                f.write(f"[{ts}] {text}\n")
+                prefix = f"[{ts}] [{speaker}] " if speaker else f"[{ts}] "
+                f.write(f"{prefix}{text}\n")
                 if translated:
-                    f.write(f"       → {translated}\n")
+                    f.write(f"{' ' * len(prefix)}→ {translated}\n")
         except Exception:
             pass
 
@@ -178,7 +190,8 @@ class TranscriberWS:
                 unprinted = self._extract_unprinted(text, printed_text)
 
                 if unprinted != prev_interim:
-                    self.ui_queue.put(("interim", unprinted, ""))
+                    speaker = self.diarizer.identify_speaker(audio_np) if self.diarizer.enabled else ""
+                    self.ui_queue.put(("interim", unprinted, "", speaker))
                     prev_interim = unprinted
 
                 # Always send latency metric
@@ -190,17 +203,23 @@ class TranscriberWS:
                 latency = self.stt.last_latency_ms
                 
                 unprinted = self._extract_unprinted(text, printed_text)
-                self.ui_queue.put(("interim", "", ""))
+                self.ui_queue.put(("interim", "", "", ""))
                 
                 if unprinted:
                     ts = datetime.now().strftime("%H:%M:%S")
-                    self.ui_queue.put(("final", unprinted, ts))
+                    speaker = self.diarizer.identify_speaker(audio_np) if self.diarizer.enabled else ""
+                    self.ui_queue.put(("final", unprinted, ts, speaker))
                 else:
                     self._push({"type": "status", "state": "listening"})
                 
                 self._push({"type": "stt_latency", "ms": round(latency, 1), "mode": "final"})
                 prev_interim = ""
                 printed_text = ""
+                
+                # Partially release RAM/VRAM after a full sentence to prevent memory leaks
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
             self.task_queue.task_done()
 
@@ -212,20 +231,20 @@ class TranscriberWS:
             if task is None:
                 break
 
-            task_type, text, ts = task
+            task_type, text, ts, speaker = task
 
             if task_type == "interim":
                 # Drain extra interim UI tasks to avoid blocking on Translate API
                 while not self.ui_queue.empty():
                     next_task = self.ui_queue.queue[0]
                     if next_task[0] == "interim":
-                        _, text, _ = self.ui_queue.get_nowait()
+                        _, text, _, _ = self.ui_queue.get_nowait()
                         self.ui_queue.task_done()
                     else:
                         break
 
                 if not text:
-                    self._push({"type": "interim", "confirmed": "", "pending": "", "text": "", "translated": ""})
+                    self._push({"type": "interim", "confirmed": "", "pending": "", "text": "", "translated": "", "speaker": ""})
                 else:
                     confirmed, pending = self._split_sentences(text)
                     if confirmed and len(confirmed) >= len(prev_confirmed):
@@ -237,19 +256,21 @@ class TranscriberWS:
                     self._push({
                         "type": "interim", "confirmed": confirmed,
                         "pending": pending, "text": full, "translated": translated,
+                        "speaker": speaker
                     })
             elif task_type == "final":
                 translated = self._translate(text)
                 try:
                     if self.log_terminal_enabled:
-                        print(f"\033[96m[{ts}] [SOURCE] {text}\033[0m")
+                        spk_fmt = f"[{speaker}] " if speaker else ""
+                        print(f"\033[96m[{ts}] {spk_fmt}[SOURCE] {text}\033[0m")
                         if translated:
                             print(f"\033[95m{' ' * 10}[TARGET] {translated}\033[0m")
                 except Exception:
                     pass
                 self._push({"type": "transcript", "text": text,
-                             "translated": translated, "timestamp": ts})
-                self._save_line(ts, text, translated)
+                             "translated": translated, "timestamp": ts, "speaker": speaker})
+                self._save_line(ts, text, translated, speaker)
                 self._push({"type": "status", "state": "listening"})
                 prev_confirmed = ""
 
@@ -323,7 +344,16 @@ class TranscriberWS:
 
     def set_source_lang(self, lang: str):
         self.source_lang = lang
-        self.stt.language = None if lang == "auto" else lang
+        
+        # If language is a specialized restrict auto-detect mode
+        if lang.startswith("auto_"):
+            langs_part = lang.split("_")[1:] # ['en', 'vi']
+            self.stt.language = None
+            self.stt.restrict_langs = langs_part
+        else:
+            self.stt.language = None if lang == "auto" else lang
+            self.stt.restrict_langs = []
+            
         if self.log_terminal_enabled:
             print(f"\033[96m[SETTING] Source -> {lang}\033[0m")
 
@@ -340,7 +370,25 @@ class TranscriberWS:
             "model": model_size, "source": self.source_lang,
             "target": self.target_lang or "none", "sr": self.system_sr,
             "compute_device": self.config.WHISPER_DEVICE,
-            "compute_type": self.config.WHISPER_COMPUTE,
+            "compute_type": self.stt.compute_type,
+        })
+
+    def set_model_config(self, compute_type: str, beam_size: int):
+        need_reload = self.stt.compute_type != compute_type
+        self.config.WHISPER_COMPUTE = compute_type
+        self.config.BEAM_SIZE = beam_size
+        self.stt.beam_size = beam_size
+        self.stt.compute_type = compute_type
+        if need_reload:
+            self.stt.load_model(self.config.WHISPER_MODEL)
+            if self.log_terminal_enabled:
+                print(f"\033[93m[SETTING] Model Config -> compute: {compute_type}, beam: {beam_size}\033[0m")
+        self._push({
+            "type": "info", "device": self.loopback_device["name"],
+            "model": self.config.WHISPER_MODEL, "source": self.source_lang,
+            "target": self.target_lang or "none", "sr": self.system_sr,
+            "compute_device": self.config.WHISPER_DEVICE,
+            "compute_type": self.stt.compute_type,
         })
 
     def run(self):
